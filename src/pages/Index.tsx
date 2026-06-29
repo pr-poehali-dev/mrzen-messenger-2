@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 
 type NavId = 'home' | 'chats' | 'rooms' | 'search' | 'profile' | 'settings';
@@ -13,6 +13,8 @@ const NAV: { id: NavId; label: string; icon: string }[] = [
 ];
 
 type Room = { name: string; topic: string; members: number; online: number; color: string; accent: string };
+type ChatItem = { name: string; last: string; time: string; unread: number; online: boolean };
+type Message = { author: string; text: string; me: boolean; time: string; role: string; pinned?: boolean };
 
 const INITIAL_ROOMS: Room[] = [
   { name: 'Дизайн и эстетика', topic: 'Минимализм, типографика, UI', members: 1240, online: 87, color: '150 30% 90%', accent: '158 40% 30%' },
@@ -30,18 +32,59 @@ const PALETTES = [
   { color: '190 40% 90%', accent: '190 50% 30%' },
 ];
 
-const CHATS = [
+const INITIAL_CHATS: ChatItem[] = [
   { name: 'Анна Корн', last: 'Отправила макет, посмотри', time: '14:32', unread: 2, online: true },
   { name: 'Команда MrZen', last: 'Релиз завтра в 12:00', time: '13:05', unread: 0, online: true },
   { name: 'Дмитрий', last: 'Спасибо за помощь!', time: 'Вчера', unread: 0, online: false },
   { name: 'Книжный клуб', last: 'Кто читал последнюю главу?', time: 'Вчера', unread: 5, online: false },
 ];
 
-const MESSAGES = [
-  { author: 'Мария', text: 'Кто-нибудь пробовал новый подход к сетке?', me: false, time: '14:20', role: '' },
-  { author: 'Вы', text: 'Да, работает отлично на мобильных', me: true, time: '14:22', role: '' },
-  { author: 'Олег', text: 'Закрепил гайд в описании комнаты', me: false, time: '14:25', role: 'Модератор' },
-];
+const ROOM_MESSAGES: Record<string, Message[]> = {
+  'Дизайн и эстетика': [
+    { author: 'Мария', text: 'Кто-нибудь пробовал новый подход к сетке?', me: false, time: '14:20', role: '' },
+    { author: 'Вы', text: 'Да, работает отлично на мобильных', me: true, time: '14:22', role: '' },
+    { author: 'Олег', text: 'Закрепил гайд в описании комнаты', me: false, time: '14:25', role: 'Модератор', pinned: true },
+    { author: 'Света', text: 'Поделитесь ссылкой на гайд?', me: false, time: '14:27', role: '' },
+    { author: 'Вы', text: 'Посмотрите закреплённое сообщение выше', me: true, time: '14:28', role: '' },
+  ],
+  'Технологии': [
+    { author: 'Артём', text: 'Что думаете о новом релизе React 19?', me: false, time: '13:10', role: '' },
+    { author: 'Вы', text: 'Компилятор — это мощно', me: true, time: '13:12', role: '' },
+    { author: 'Дима', text: 'Уже переходим на него в проде', me: false, time: '13:15', role: 'Модератор' },
+  ],
+  'Философия': [
+    { author: 'Ира', text: 'Осознанность — это навык или состояние?', me: false, time: '12:00', role: '' },
+    { author: 'Вы', text: 'Думаю, и то и другое одновременно', me: true, time: '12:05', role: '' },
+  ],
+  'Музыка': [
+    { author: 'Коля', text: 'Слушали новый альбом Radiohead?', me: false, time: '11:30', role: '' },
+    { author: 'Вы', text: 'Ещё нет, но уже в очереди!', me: true, time: '11:32', role: '' },
+    { author: 'Лена', text: 'Обязательно послушайте, это шедевр', me: false, time: '11:35', role: '' },
+  ],
+};
+
+const CHAT_MESSAGES: Record<string, Message[]> = {
+  'Анна Корн': [
+    { author: 'Анна Корн', text: 'Привет! Как дела с проектом?', me: false, time: '14:10', role: '' },
+    { author: 'Вы', text: 'Всё идёт по плану', me: true, time: '14:12', role: '' },
+    { author: 'Анна Корн', text: 'Отправила макет, посмотри', me: false, time: '14:32', role: '' },
+  ],
+  'Команда MrZen': [
+    { author: 'Саша', text: 'Всем привет! Готовимся к релизу', me: false, time: '13:00', role: '' },
+    { author: 'Вы', text: 'Готов, тестирование завершено', me: true, time: '13:02', role: '' },
+    { author: 'Саша', text: 'Релиз завтра в 12:00', me: false, time: '13:05', role: '' },
+  ],
+  'Дмитрий': [
+    { author: 'Дмитрий', text: 'Можешь помочь с задачей?', me: false, time: 'Вчера', role: '' },
+    { author: 'Вы', text: 'Конечно, что нужно?', me: true, time: 'Вчера', role: '' },
+    { author: 'Дмитрий', text: 'Спасибо за помощь!', me: false, time: 'Вчера', role: '' },
+  ],
+  'Книжный клуб': [
+    { author: 'Таня', text: 'Всем привет! Читаем «Мастер и Маргарита»', me: false, time: 'Вчера', role: '' },
+    { author: 'Вы', text: 'Дочитал до середины', me: true, time: 'Вчера', role: '' },
+    { author: 'Таня', text: 'Кто читал последнюю главу?', me: false, time: 'Вчера', role: '' },
+  ],
+};
 
 function Logo() {
   return (
@@ -54,6 +97,199 @@ function Logo() {
   );
 }
 
+function RoomScreen({ room, onBack }: { room: Room; onBack: () => void }) {
+  const [messages, setMessages] = useState<Message[]>(
+    ROOM_MESSAGES[room.name] || []
+  );
+  const [input, setInput] = useState('');
+  const [showMod, setShowMod] = useState(false);
+  const [pinnedMsg, setPinnedMsg] = useState<Message | null>(
+    (ROOM_MESSAGES[room.name] || []).find((m) => m.pinned) || null
+  );
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  const send = () => {
+    const text = input.trim();
+    if (!text) return;
+    const now = new Date();
+    const time = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+    setMessages((prev) => [...prev, { author: 'Вы', text, me: true, time, role: '' }]);
+    setInput('');
+  };
+
+  const pinMessage = (msg: Message) => { setPinnedMsg(msg); setShowMod(false); };
+  const deleteMessage = (idx: number) => setMessages((prev) => prev.filter((_, i) => i !== idx));
+
+  return (
+    <div className="flex h-screen flex-col bg-background animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center gap-3 border-b border-border bg-card/80 px-4 py-3 backdrop-blur">
+        <button onClick={onBack} className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary">
+          <Icon name="ArrowLeft" size={20} />
+        </button>
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: `hsl(${room.color})` }}>
+          <Icon name="Hash" size={20} style={{ color: `hsl(${room.accent})` }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-bold truncate">{room.name}</div>
+          <div className="text-xs text-muted-foreground">{room.topic} · {room.online} онлайн</div>
+        </div>
+        <button
+          onClick={() => setShowMod(!showMod)}
+          className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${showMod ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-accent'}`}
+        >
+          <Icon name="Shield" size={14} /> Модерация
+        </button>
+      </div>
+
+      {/* Moderation panel */}
+      {showMod && (
+        <div className="border-b border-border bg-secondary/60 px-4 py-3 flex flex-wrap gap-2 animate-fade-in">
+          <span className="text-xs font-semibold text-muted-foreground self-center mr-2">Инструменты:</span>
+          {messages.length > 0 && (
+            <button onClick={() => pinMessage(messages[messages.length - 1])} className="flex items-center gap-1.5 rounded-lg bg-card border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent transition-colors">
+              <Icon name="Pin" size={13} /> Закрепить последнее
+            </button>
+          )}
+          <button onClick={() => setPinnedMsg(null)} className="flex items-center gap-1.5 rounded-lg bg-card border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent transition-colors">
+            <Icon name="PinOff" size={13} /> Снять закрепление
+          </button>
+          <button onClick={() => setMessages([])} className="flex items-center gap-1.5 rounded-lg bg-card border border-border px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors">
+            <Icon name="Trash2" size={13} /> Очистить чат
+          </button>
+        </div>
+      )}
+
+      {/* Pinned */}
+      {pinnedMsg && (
+        <div className="flex items-center gap-2 border-b border-border bg-accent/50 px-4 py-2">
+          <Icon name="Pin" size={13} className="text-accent-foreground shrink-0" />
+          <span className="text-xs text-accent-foreground truncate"><span className="font-semibold">{pinnedMsg.author}:</span> {pinnedMsg.text}</span>
+          <button onClick={() => setPinnedMsg(null)} className="ml-auto shrink-0 text-muted-foreground hover:text-foreground"><Icon name="X" size={13} /></button>
+        </div>
+      )}
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+        {messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm gap-2">
+            <Icon name="MessageCircle" size={36} className="opacity-20" />
+            Нет сообщений. Начните обсуждение!
+          </div>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} className={`group flex flex-col ${m.me ? 'items-end' : 'items-start'}`}>
+            <div className="mb-1 flex items-center gap-2 px-1">
+              {!m.me && <span className="text-xs font-semibold">{m.author}</span>}
+              {m.role && <span className="rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold text-accent-foreground">{m.role}</span>}
+              <span className="text-[11px] text-muted-foreground">{m.time}</span>
+              {showMod && (
+                <button onClick={() => deleteMessage(i)} className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive/70">
+                  <Icon name="X" size={13} />
+                </button>
+              )}
+            </div>
+            <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${m.me ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-bl-md bg-secondary text-foreground'}`}>
+              {m.text}
+            </div>
+          </div>
+        ))}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div className="border-t border-border bg-card/80 p-3 pb-safe backdrop-blur">
+        <div className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-2">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && send()}
+            placeholder={`Написать в #${room.name}…`}
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+          <button onClick={send} disabled={!input.trim()} className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-all hover:scale-105 disabled:opacity-40 disabled:hover:scale-100">
+            <Icon name="ArrowUp" size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChatScreen({ chat, onBack }: { chat: ChatItem; onBack: () => void }) {
+  const [messages, setMessages] = useState<Message[]>(CHAT_MESSAGES[chat.name] || []);
+  const [input, setInput] = useState('');
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  const send = () => {
+    const text = input.trim();
+    if (!text) return;
+    const now = new Date();
+    const time = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+    setMessages((prev) => [...prev, { author: 'Вы', text, me: true, time, role: '' }]);
+    setInput('');
+  };
+
+  return (
+    <div className="flex h-screen flex-col bg-background animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center gap-3 border-b border-border bg-card/80 px-4 py-3 backdrop-blur">
+        <button onClick={onBack} className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary">
+          <Icon name="ArrowLeft" size={20} />
+        </button>
+        <div className="relative shrink-0">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-sm font-semibold">
+            {chat.name[0]}
+          </div>
+          {chat.online && <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card bg-green-500" />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-bold truncate">{chat.name}</div>
+          <div className="text-xs text-muted-foreground">{chat.online ? 'онлайн' : 'не в сети'}</div>
+        </div>
+        <button className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary">
+          <Icon name="Phone" size={18} />
+        </button>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+        {messages.map((m, i) => (
+          <div key={i} className={`flex flex-col ${m.me ? 'items-end' : 'items-start'}`}>
+            <div className="mb-1 px-1">
+              <span className="text-[11px] text-muted-foreground">{m.time}</span>
+            </div>
+            <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${m.me ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-bl-md bg-secondary text-foreground'}`}>
+              {m.text}
+            </div>
+          </div>
+        ))}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div className="border-t border-border bg-card/80 p-3 backdrop-blur">
+        <div className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-2">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && send()}
+            placeholder={`Написать ${chat.name}…`}
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+          <button onClick={send} disabled={!input.trim()} className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-all hover:scale-105 disabled:opacity-40 disabled:hover:scale-100">
+            <Icon name="ArrowUp" size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Index() {
   const [active, setActive] = useState<NavId>('home');
   const [rooms, setRooms] = useState<Room[]>(INITIAL_ROOMS);
@@ -62,12 +298,10 @@ export default function Index() {
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showMobileNav, setShowMobileNav] = useState(false);
+  const [openRoom, setOpenRoom] = useState<Room | null>(null);
+  const [openChat, setOpenChat] = useState<ChatItem | null>(null);
 
-  const openCreate = () => {
-    setForm({ name: '', topic: '', palette: 0 });
-    setShowCreate(true);
-  };
-
+  const openCreate = () => { setForm({ name: '', topic: '', palette: 0 }); setShowCreate(true); };
   const createRoom = () => {
     const name = form.name.trim();
     if (!name) return;
@@ -78,6 +312,11 @@ export default function Index() {
     ]);
     setShowCreate(false);
   };
+
+  // Открыт экран комнаты
+  if (openRoom) return <RoomScreen room={openRoom} onBack={() => setOpenRoom(null)} />;
+  // Открыт экран чата
+  if (openChat) return <ChatScreen chat={openChat} onBack={() => setOpenChat(null)} />;
 
   return (
     <div className="min-h-screen bg-background text-foreground antialiased">
@@ -155,29 +394,26 @@ export default function Index() {
               {rooms.map((room, i) => (
                 <article
                   key={room.name}
-                  className="group animate-scale-in rounded-2xl border border-border bg-card p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/5"
+                  onClick={() => setOpenRoom(room)}
+                  className="group animate-scale-in cursor-pointer rounded-2xl border border-border bg-card p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/5"
                   style={{ animationDelay: `${i * 70}ms`, opacity: 0 }}
                 >
                   <div className="flex items-start justify-between">
-                    <div
-                      className="flex h-12 w-12 items-center justify-center rounded-xl"
-                      style={{ backgroundColor: `hsl(${room.color})` }}
-                    >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: `hsl(${room.color})` }}>
                       <Icon name="Hash" size={22} style={{ color: `hsl(${room.accent})` }} />
                     </div>
-                    <button className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary">
+                    <button
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary"
+                    >
                       <Icon name="EllipsisVertical" size={18} />
                     </button>
                   </div>
                   <h3 className="mt-4 text-lg font-bold tracking-tight">{room.name}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">{room.topic}</p>
                   <div className="mt-4 flex items-center gap-4 text-xs font-medium text-muted-foreground">
-                    <span className="flex items-center gap-1.5">
-                      <Icon name="Users" size={14} /> {room.members.toLocaleString('ru')}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> {room.online} онлайн
-                    </span>
+                    <span className="flex items-center gap-1.5"><Icon name="Users" size={14} /> {room.members.toLocaleString('ru')}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-green-500" /> {room.online} онлайн</span>
                   </div>
                 </article>
               ))}
@@ -193,8 +429,8 @@ export default function Index() {
                 <Icon name="MessageCircle" size={18} className="text-muted-foreground" />
               </div>
               <div className="flex flex-col">
-                {CHATS.map((chat) => (
-                  <button key={chat.name} className="flex items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-secondary">
+                {INITIAL_CHATS.map((chat) => (
+                  <button key={chat.name} onClick={() => setOpenChat(chat)} className="flex items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-secondary">
                     <div className="relative shrink-0">
                       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-sm font-semibold">
                         {chat.name[0]}
@@ -232,56 +468,43 @@ export default function Index() {
                     <div className="text-xs text-muted-foreground">87 онлайн</div>
                   </div>
                 </div>
-                <button className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-accent">
-                  <Icon name="Shield" size={14} /> Модерация
+                <button onClick={() => setOpenRoom(rooms[0])} className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-accent">
+                  Открыть <Icon name="ArrowRight" size={13} />
                 </button>
               </div>
               <div className="flex flex-1 flex-col gap-4 px-5 py-5">
-                {MESSAGES.map((m, i) => (
+                {(ROOM_MESSAGES['Дизайн и эстетика'] || []).slice(0, 3).map((m, i) => (
                   <div key={i} className={`flex flex-col ${m.me ? 'items-end' : 'items-start'}`}>
                     <div className="mb-1 flex items-center gap-2 px-1">
                       <span className="text-xs font-semibold">{m.author}</span>
-                      {m.role && (
-                        <span className="rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold text-accent-foreground">{m.role}</span>
-                      )}
+                      {m.role && <span className="rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold text-accent-foreground">{m.role}</span>}
                       <span className="text-[11px] text-muted-foreground">{m.time}</span>
                     </div>
-                    <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
-                        m.me ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-bl-md bg-secondary text-foreground'
-                      }`}
-                    >
+                    <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${m.me ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-bl-md bg-secondary text-foreground'}`}>
                       {m.text}
                     </div>
                   </div>
                 ))}
               </div>
               <div className="border-t border-border p-3">
-                <div className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-2">
-                  <input
-                    placeholder="Написать в комнату…"
-                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                  />
-                  <button className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-transform hover:scale-105">
-                    <Icon name="ArrowUp" size={16} />
-                  </button>
-                </div>
+                <button
+                  onClick={() => setOpenRoom(rooms[0])}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-secondary px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <Icon name="ArrowRight" size={15} /> Войти в комнату
+                </button>
               </div>
             </div>
           </section>
 
-          {/* Moderation feature strip */}
+          {/* Feature strip */}
           <section className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-3">
             {[
               { icon: 'Shield', title: 'Модерация', text: 'Закрепляйте, удаляйте и управляйте участниками' },
               { icon: 'EyeOff', title: 'Чистый контент', text: 'Фильтры и правила для спокойных обсуждений' },
               { icon: 'Sparkles', title: 'Фокус на теме', text: 'Минимум шума, максимум смысла' },
             ].map((f, i) => (
-              <div
-                key={f.title}
-                className="animate-fade-in rounded-2xl border border-border bg-card p-5"
-                style={{ animationDelay: `${i * 80}ms`, opacity: 0 }}
-              >
+              <div key={f.title} className="animate-fade-in rounded-2xl border border-border bg-card p-5" style={{ animationDelay: `${i * 80}ms`, opacity: 0 }}>
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary">
                   <Icon name={f.icon} size={20} />
                 </div>
@@ -299,22 +522,16 @@ export default function Index() {
 
       {/* Mobile nav drawer */}
       {showMobileNav && (
-        <div
-          className="fixed inset-0 z-[60] flex md:hidden"
-          onClick={() => setShowMobileNav(false)}
-        >
+        <div className="fixed inset-0 z-[60] flex md:hidden" onClick={() => setShowMobileNav(false)}>
           <div className="absolute inset-0 bg-foreground/30 backdrop-blur-sm" />
           <div
-            className="animate-slide-in-right relative ml-auto flex h-full w-72 flex-col bg-card px-4 py-6 shadow-2xl"
+            className="relative ml-auto flex h-full w-72 flex-col bg-card px-4 py-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
             style={{ animation: 'slideInRight 0.25s ease-out' }}
           >
             <div className="flex items-center justify-between px-2">
               <Logo />
-              <button
-                onClick={() => setShowMobileNav(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary"
-              >
+              <button onClick={() => setShowMobileNav(false)} className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary">
                 <Icon name="X" size={20} />
               </button>
             </div>
@@ -324,9 +541,7 @@ export default function Index() {
                   key={item.id}
                   onClick={() => { setActive(item.id); setShowMobileNav(false); }}
                   className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors ${
-                    active === item.id
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    active === item.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                   }`}
                 >
                   <Icon name={item.icon} size={20} />
@@ -347,14 +562,8 @@ export default function Index() {
 
       {/* Search modal */}
       {showSearch && (
-        <div
-          className="fixed inset-0 z-[60] flex items-start justify-center bg-foreground/30 p-4 pt-16 backdrop-blur-sm"
-          onClick={() => { setShowSearch(false); setSearchQuery(''); }}
-        >
-          <div
-            className="animate-scale-in w-full max-w-lg rounded-2xl border border-border bg-card shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-foreground/30 p-4 pt-16 backdrop-blur-sm" onClick={() => { setShowSearch(false); setSearchQuery(''); }}>
+          <div className="animate-scale-in w-full max-w-lg rounded-2xl border border-border bg-card shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 border-b border-border px-4 py-3">
               <Icon name="Search" size={18} className="shrink-0 text-muted-foreground" />
               <input
@@ -374,29 +583,16 @@ export default function Index() {
             <div className="max-h-80 overflow-y-auto py-2">
               {(() => {
                 const q = searchQuery.toLowerCase();
-                const filtered = rooms.filter(
-                  (r) => r.name.toLowerCase().includes(q) || r.topic.toLowerCase().includes(q)
-                );
-                if (!searchQuery) return (
-                  <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                    Начните вводить название или тему комнаты
-                  </div>
-                );
-                if (!filtered.length) return (
-                  <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                    Ничего не найдено по запросу «{searchQuery}»
-                  </div>
-                );
+                const filtered = rooms.filter((r) => r.name.toLowerCase().includes(q) || r.topic.toLowerCase().includes(q));
+                if (!searchQuery) return <div className="px-4 py-6 text-center text-sm text-muted-foreground">Начните вводить название или тему комнаты</div>;
+                if (!filtered.length) return <div className="px-4 py-6 text-center text-sm text-muted-foreground">Ничего не найдено по запросу «{searchQuery}»</div>;
                 return filtered.map((room) => (
                   <button
                     key={room.name}
-                    onClick={() => { setShowSearch(false); setSearchQuery(''); }}
+                    onClick={() => { setShowSearch(false); setSearchQuery(''); setOpenRoom(room); }}
                     className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary"
                   >
-                    <div
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-                      style={{ backgroundColor: `hsl(${room.color})` }}
-                    >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `hsl(${room.color})` }}>
                       <Icon name="Hash" size={18} style={{ color: `hsl(${room.accent})` }} />
                     </div>
                     <div className="min-w-0">
@@ -405,9 +601,7 @@ export default function Index() {
                     </div>
                     <div className="ml-auto shrink-0 text-right">
                       <div className="text-xs font-medium">{room.members.toLocaleString('ru')}</div>
-                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                        <span className="h-1.5 w-1.5 rounded-full bg-green-500" />{room.online}
-                      </div>
+                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground"><span className="h-1.5 w-1.5 rounded-full bg-green-500" />{room.online}</div>
                     </div>
                   </button>
                 ));
@@ -419,24 +613,14 @@ export default function Index() {
 
       {/* Create room modal */}
       {showCreate && (
-        <div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-foreground/30 p-0 backdrop-blur-sm sm:items-center sm:p-4"
-          onClick={() => setShowCreate(false)}
-        >
-          <div
-            className="animate-scale-in w-full max-w-md rounded-t-3xl border border-border bg-card p-6 sm:rounded-3xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-foreground/30 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setShowCreate(false)}>
+          <div className="animate-scale-in w-full max-w-md rounded-t-3xl border border-border bg-card p-6 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold tracking-tight">Новая комната</h3>
-              <button
-                onClick={() => setShowCreate(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary"
-              >
+              <button onClick={() => setShowCreate(false)} className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary">
                 <Icon name="X" size={20} />
               </button>
             </div>
-
             <label className="mt-5 block text-sm font-semibold">Название</label>
             <input
               autoFocus
@@ -446,7 +630,6 @@ export default function Index() {
               placeholder="Например, Путешествия"
               className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-foreground/40 placeholder:text-muted-foreground"
             />
-
             <label className="mt-4 block text-sm font-semibold">Тема обсуждения</label>
             <input
               value={form.topic}
@@ -455,35 +638,24 @@ export default function Index() {
               placeholder="О чём комната?"
               className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-foreground/40 placeholder:text-muted-foreground"
             />
-
             <label className="mt-4 block text-sm font-semibold">Цвет</label>
             <div className="mt-2 flex flex-wrap gap-2">
               {PALETTES.map((p, i) => (
                 <button
                   key={i}
                   onClick={() => setForm({ ...form, palette: i })}
-                  className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${
-                    form.palette === i ? 'ring-2 ring-foreground ring-offset-2 ring-offset-card' : ''
-                  }`}
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${form.palette === i ? 'ring-2 ring-foreground ring-offset-2 ring-offset-card' : ''}`}
                   style={{ backgroundColor: `hsl(${p.color})` }}
                 >
                   <Icon name="Hash" size={16} style={{ color: `hsl(${p.accent})` }} />
                 </button>
               ))}
             </div>
-
             <div className="mt-7 flex gap-3">
-              <button
-                onClick={() => setShowCreate(false)}
-                className="flex-1 rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold transition-colors hover:bg-secondary"
-              >
+              <button onClick={() => setShowCreate(false)} className="flex-1 rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold transition-colors hover:bg-secondary">
                 Отмена
               </button>
-              <button
-                onClick={createRoom}
-                disabled={!form.name.trim()}
-                className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-all hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
-              >
+              <button onClick={createRoom} disabled={!form.name.trim()} className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-all hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100">
                 Создать
               </button>
             </div>
