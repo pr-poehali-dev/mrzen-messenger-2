@@ -565,9 +565,9 @@ function SearchSection({ rooms, onOpenRoom, onOpenChat }: { rooms: Room[]; onOpe
 }
 
 // ── Section: Profile ─────────────────────────────────────────────────────────
-function ProfileSection() {
-  const [name, setName] = useState('Ваше имя');
-  const [username, setUsername] = useState('@you');
+function ProfileSection({ user, onLogout }: { user: { name: string; username: string }; onLogout: () => void }) {
+  const [name, setName] = useState(user.name);
+  const [username, setUsername] = useState(user.username);
   const [bio, setBio] = useState('Люблю осознанные беседы и минимализм');
   const [editing, setEditing] = useState(false);
   return (
@@ -619,12 +619,15 @@ function ProfileSection() {
           </div>
         ))}
       </div>
+      <button onClick={onLogout} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 py-3 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/5">
+        <Icon name="LogOut" size={16} /> Выйти из аккаунта
+      </button>
     </div>
   );
 }
 
 // ── Section: Settings ────────────────────────────────────────────────────────
-function SettingsSection() {
+function SettingsSection({ onLogout }: { onLogout: () => void }) {
   const [notif, setNotif] = useState(true);
   const [sounds, setSounds] = useState(true);
   const [compact, setCompact] = useState(false);
@@ -690,7 +693,7 @@ function SettingsSection() {
           <span className="text-sm font-semibold">Изменить пароль</span>
           <Icon name="ChevronRight" size={15} className="ml-auto text-muted-foreground" />
         </button>
-        <button className="flex w-full items-center gap-3 px-5 py-4 border-t border-border text-left text-destructive hover:bg-destructive/5 transition-colors">
+        <button onClick={onLogout} className="flex w-full items-center gap-3 px-5 py-4 border-t border-border text-left text-destructive hover:bg-destructive/5 transition-colors">
           <Icon name="LogOut" size={16} />
           <span className="text-sm font-semibold">Выйти из аккаунта</span>
         </button>
@@ -700,7 +703,12 @@ function SettingsSection() {
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
-export default function Index() {
+interface IndexProps {
+  user: { name: string; username: string };
+  onLogout: () => void;
+}
+
+export default function Index({ user, onLogout }: IndexProps) {
   const [active, setActive] = useState<NavId>('home');
   const [rooms, setRooms] = useState<Room[]>(INITIAL_ROOMS);
   const [showCreate, setShowCreate] = useState(false);
@@ -750,12 +758,17 @@ export default function Index() {
               </button>
             ))}
           </nav>
-          <div className="mt-auto flex items-center gap-3 rounded-xl bg-secondary px-3 py-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">Я</div>
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold">Ваш профиль</div>
-              <div className="truncate text-xs text-muted-foreground">@you</div>
+          <div className="mt-auto flex items-center gap-2 rounded-xl bg-secondary px-3 py-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+              {user.name[0].toUpperCase()}
             </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold">{user.name}</div>
+              <div className="truncate text-xs text-muted-foreground">{user.username}</div>
+            </div>
+            <button onClick={onLogout} title="Выйти" className="shrink-0 text-muted-foreground transition-colors hover:text-destructive">
+              <Icon name="LogOut" size={16} />
+            </button>
           </div>
         </aside>
 
@@ -773,8 +786,8 @@ export default function Index() {
           {active === 'chats' && <ChatsSection onOpenChat={setOpenChat} />}
           {active === 'rooms' && <RoomsSection rooms={rooms} onOpenRoom={setOpenRoom} onCreateRoom={openCreate} />}
           {active === 'search' && <SearchSection rooms={rooms} onOpenRoom={setOpenRoom} onOpenChat={setOpenChat} />}
-          {active === 'profile' && <ProfileSection />}
-          {active === 'settings' && <SettingsSection />}
+          {active === 'profile' && <ProfileSection user={user} onLogout={onLogout} />}
+          {active === 'settings' && <SettingsSection onLogout={onLogout} />}
 
           {/* Home section */}
           {active === 'home' && <>
@@ -970,12 +983,17 @@ export default function Index() {
                 </button>
               ))}
             </nav>
-            <div className="mt-auto flex items-center gap-3 rounded-xl bg-secondary px-3 py-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">Я</div>
-              <div className="min-w-0">
-                <div className="truncate text-sm font-semibold">Ваш профиль</div>
-                <div className="truncate text-xs text-muted-foreground">@you</div>
+            <div className="mt-auto flex items-center gap-2 rounded-xl bg-secondary px-3 py-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+                {user.name[0].toUpperCase()}
               </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold">{user.name}</div>
+                <div className="truncate text-xs text-muted-foreground">{user.username}</div>
+              </div>
+              <button onClick={onLogout} title="Выйти" className="shrink-0 text-muted-foreground transition-colors hover:text-destructive">
+                <Icon name="LogOut" size={16} />
+              </button>
             </div>
           </div>
         </div>
