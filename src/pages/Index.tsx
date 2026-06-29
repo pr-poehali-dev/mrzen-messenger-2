@@ -412,6 +412,294 @@ function ChatScreen({ chat, onBack }: { chat: ChatItem; onBack: () => void }) {
   );
 }
 
+// ── Section: Chats list ─────────────────────────────────────────────────────
+function ChatsSection({ onOpenChat }: { onOpenChat: (c: ChatItem) => void }) {
+  const [search, setSearch] = useState('');
+  const filtered = INITIAL_CHATS.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()));
+  return (
+    <div className="animate-fade-in">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Чаты</h2>
+          <p className="text-sm text-muted-foreground mt-1">Личные и групповые переписки</p>
+        </div>
+        <button className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:scale-[1.02] transition-transform">
+          <Icon name="Plus" size={15} className="inline mr-1.5" />Новый чат
+        </button>
+      </div>
+      <div className="flex items-center gap-2 rounded-xl bg-secondary px-4 py-2.5 mb-4">
+        <Icon name="Search" size={16} className="text-muted-foreground shrink-0" />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Найти чат…" className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
+      </div>
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        {filtered.length === 0 && <p className="text-center text-sm text-muted-foreground py-10">Ничего не найдено</p>}
+        {filtered.map((chat, i) => (
+          <button key={chat.name} onClick={() => onOpenChat(chat)} className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-secondary ${i !== 0 ? 'border-t border-border' : ''}`}>
+            <div className="relative shrink-0">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-base font-semibold">{chat.name[0]}</div>
+              {chat.online && <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card bg-green-500" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-sm font-semibold">{chat.name}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">{chat.time}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 mt-0.5">
+                <span className="truncate text-sm text-muted-foreground">{chat.last}</span>
+                {chat.unread > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground">{chat.unread}</span>}
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Section: Rooms list ─────────────────────────────────────────────────────
+function RoomsSection({ rooms, onOpenRoom, onCreateRoom }: { rooms: Room[]; onOpenRoom: (r: Room) => void; onCreateRoom: () => void }) {
+  const [search, setSearch] = useState('');
+  const filtered = rooms.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()) || r.topic.toLowerCase().includes(search.toLowerCase()));
+  return (
+    <div className="animate-fade-in">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Комнаты</h2>
+          <p className="text-sm text-muted-foreground mt-1">{rooms.length} тематических пространств</p>
+        </div>
+        <button onClick={onCreateRoom} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:scale-[1.02] transition-transform">
+          <Icon name="Plus" size={15} className="inline mr-1.5" />Создать
+        </button>
+      </div>
+      <div className="flex items-center gap-2 rounded-xl bg-secondary px-4 py-2.5 mb-5">
+        <Icon name="Search" size={16} className="text-muted-foreground shrink-0" />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Найти комнату…" className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {filtered.map((room, i) => (
+          <article key={room.name} onClick={() => onOpenRoom(room)} className="cursor-pointer rounded-2xl border border-border bg-card p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/5" style={{ animationDelay: `${i * 50}ms` }}>
+            <div className="flex items-start justify-between">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: `hsl(${room.color})` }}>
+                <Icon name="Hash" size={22} style={{ color: `hsl(${room.accent})` }} />
+              </div>
+              <span className="flex items-center gap-1 text-xs text-muted-foreground"><span className="h-1.5 w-1.5 rounded-full bg-green-500" />{room.online}</span>
+            </div>
+            <h3 className="mt-4 text-base font-bold tracking-tight">{room.name}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{room.topic}</p>
+            <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1"><Icon name="Users" size={13} />{room.members.toLocaleString('ru')}</span>
+            </div>
+          </article>
+        ))}
+        {filtered.length === 0 && <p className="col-span-2 text-center text-sm text-muted-foreground py-10">Ничего не найдено</p>}
+      </div>
+    </div>
+  );
+}
+
+// ── Section: Search ─────────────────────────────────────────────────────────
+function SearchSection({ rooms, onOpenRoom, onOpenChat }: { rooms: Room[]; onOpenRoom: (r: Room) => void; onOpenChat: (c: ChatItem) => void }) {
+  const [q, setQ] = useState('');
+  const lq = q.toLowerCase();
+  const filteredRooms = q ? rooms.filter((r) => r.name.toLowerCase().includes(lq) || r.topic.toLowerCase().includes(lq)) : [];
+  const filteredChats = q ? INITIAL_CHATS.filter((c) => c.name.toLowerCase().includes(lq)) : [];
+  return (
+    <div className="animate-fade-in">
+      <h2 className="text-2xl font-bold tracking-tight mb-2">Поиск</h2>
+      <p className="text-sm text-muted-foreground mb-6">Комнаты, чаты и обсуждения</p>
+      <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 mb-6 focus-within:border-foreground/30 transition-colors">
+        <Icon name="Search" size={18} className="text-muted-foreground shrink-0" />
+        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Введите запрос…" className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
+        {q && <button onClick={() => setQ('')} className="text-muted-foreground hover:text-foreground"><Icon name="X" size={15} /></button>}
+      </div>
+      {!q && (
+        <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
+          <Icon name="Search" size={40} className="opacity-15" />
+          <span className="text-sm">Начните вводить для поиска</span>
+        </div>
+      )}
+      {q && filteredRooms.length === 0 && filteredChats.length === 0 && (
+        <p className="text-center text-sm text-muted-foreground py-10">Ничего не найдено по запросу «{q}»</p>
+      )}
+      {filteredRooms.length > 0 && (
+        <div className="mb-6">
+          <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Комнаты</p>
+          <div className="flex flex-col gap-2">
+            {filteredRooms.map((room) => (
+              <button key={room.name} onClick={() => onOpenRoom(room)} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-left hover:bg-secondary transition-colors">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `hsl(${room.color})` }}>
+                  <Icon name="Hash" size={18} style={{ color: `hsl(${room.accent})` }} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold truncate">{room.name}</div>
+                  <div className="text-xs text-muted-foreground truncate">{room.topic}</div>
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0">{room.members.toLocaleString('ru')}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {filteredChats.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Чаты</p>
+          <div className="flex flex-col gap-2">
+            {filteredChats.map((chat) => (
+              <button key={chat.name} onClick={() => onOpenChat(chat)} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-left hover:bg-secondary transition-colors">
+                <div className="relative shrink-0">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-sm font-semibold">{chat.name[0]}</div>
+                  {chat.online && <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-card bg-green-500" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold truncate">{chat.name}</div>
+                  <div className="text-xs text-muted-foreground truncate">{chat.last}</div>
+                </div>
+                <span className={`text-xs shrink-0 ${chat.online ? 'text-green-600' : 'text-muted-foreground'}`}>{chat.online ? 'онлайн' : 'офлайн'}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Section: Profile ─────────────────────────────────────────────────────────
+function ProfileSection() {
+  const [name, setName] = useState('Ваше имя');
+  const [username, setUsername] = useState('@you');
+  const [bio, setBio] = useState('Люблю осознанные беседы и минимализм');
+  const [editing, setEditing] = useState(false);
+  return (
+    <div className="animate-fade-in max-w-lg">
+      <h2 className="text-2xl font-bold tracking-tight mb-6">Профиль</h2>
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <div className="flex items-center gap-4">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary text-2xl font-extrabold text-primary-foreground">{name[0]}</div>
+          <div className="flex-1 min-w-0">
+            {editing ? (
+              <>
+                <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-semibold outline-none mb-1.5" />
+                <input value={username} onChange={(e) => setUsername(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-muted-foreground outline-none" />
+              </>
+            ) : (
+              <>
+                <div className="text-xl font-bold truncate">{name}</div>
+                <div className="text-sm text-muted-foreground">{username}</div>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="mt-4">
+          {editing ? (
+            <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={2} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none resize-none" />
+          ) : (
+            <p className="text-sm text-muted-foreground">{bio}</p>
+          )}
+        </div>
+        <div className="mt-5 flex gap-2">
+          {editing ? (
+            <>
+              <button onClick={() => setEditing(false)} className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:scale-[1.02] transition-transform">Сохранить</button>
+              <button onClick={() => setEditing(false)} className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold hover:bg-secondary transition-colors">Отмена</button>
+            </>
+          ) : (
+            <button onClick={() => setEditing(true)} className="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold hover:bg-secondary transition-colors">
+              <Icon name="Pencil" size={14} /> Редактировать
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        {[{ label: 'Комнаты', value: '4' }, { label: 'Чаты', value: '4' }, { label: 'Сообщений', value: '18' }].map((s) => (
+          <div key={s.label} className="rounded-2xl border border-border bg-card p-4 text-center">
+            <div className="text-2xl font-extrabold">{s.value}</div>
+            <div className="text-xs text-muted-foreground mt-1">{s.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Section: Settings ────────────────────────────────────────────────────────
+function SettingsSection() {
+  const [notif, setNotif] = useState(true);
+  const [sounds, setSounds] = useState(true);
+  const [compact, setCompact] = useState(false);
+  const [lang, setLang] = useState('ru');
+
+  const Toggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
+    <button onClick={onChange} className={`relative h-6 w-11 rounded-full transition-colors ${value ? 'bg-primary' : 'bg-muted'}`}>
+      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${value ? 'translate-x-5' : 'translate-x-0.5'}`} />
+    </button>
+  );
+
+  return (
+    <div className="animate-fade-in max-w-lg">
+      <h2 className="text-2xl font-bold tracking-tight mb-6">Настройки</h2>
+
+      <div className="rounded-2xl border border-border bg-card overflow-hidden mb-4">
+        <div className="px-5 py-3 border-b border-border bg-secondary/40">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Уведомления</span>
+        </div>
+        {[
+          { label: 'Push-уведомления', desc: 'Новые сообщения и упоминания', value: notif, onChange: () => setNotif(!notif) },
+          { label: 'Звуки', desc: 'Звуки при получении сообщений', value: sounds, onChange: () => setSounds(!sounds) },
+        ].map((item, i) => (
+          <div key={item.label} className={`flex items-center justify-between px-5 py-4 ${i !== 0 ? 'border-t border-border' : ''}`}>
+            <div>
+              <div className="text-sm font-semibold">{item.label}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{item.desc}</div>
+            </div>
+            <Toggle value={item.value} onChange={item.onChange} />
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card overflow-hidden mb-4">
+        <div className="px-5 py-3 border-b border-border bg-secondary/40">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Интерфейс</span>
+        </div>
+        <div className="flex items-center justify-between px-5 py-4">
+          <div>
+            <div className="text-sm font-semibold">Компактный режим</div>
+            <div className="text-xs text-muted-foreground mt-0.5">Уменьшить отступы и размер шрифта</div>
+          </div>
+          <Toggle value={compact} onChange={() => setCompact(!compact)} />
+        </div>
+        <div className="flex items-center justify-between px-5 py-4 border-t border-border">
+          <div>
+            <div className="text-sm font-semibold">Язык</div>
+            <div className="text-xs text-muted-foreground mt-0.5">Язык интерфейса</div>
+          </div>
+          <select value={lang} onChange={(e) => setLang(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm outline-none">
+            <option value="ru">Русский</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-border bg-secondary/40">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Аккаунт</span>
+        </div>
+        <button className="flex w-full items-center gap-3 px-5 py-4 text-left hover:bg-secondary transition-colors">
+          <Icon name="Lock" size={16} className="text-muted-foreground" />
+          <span className="text-sm font-semibold">Изменить пароль</span>
+          <Icon name="ChevronRight" size={15} className="ml-auto text-muted-foreground" />
+        </button>
+        <button className="flex w-full items-center gap-3 px-5 py-4 border-t border-border text-left text-destructive hover:bg-destructive/5 transition-colors">
+          <Icon name="LogOut" size={16} />
+          <span className="text-sm font-semibold">Выйти из аккаунта</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
 export default function Index() {
   const [active, setActive] = useState<NavId>('home');
   const [rooms, setRooms] = useState<Room[]>(INITIAL_ROOMS);
@@ -480,6 +768,16 @@ export default function Index() {
               <Icon name="Menu" size={20} />
             </button>
           </div>
+
+          {/* Non-home sections */}
+          {active === 'chats' && <ChatsSection onOpenChat={setOpenChat} />}
+          {active === 'rooms' && <RoomsSection rooms={rooms} onOpenRoom={setOpenRoom} onCreateRoom={openCreate} />}
+          {active === 'search' && <SearchSection rooms={rooms} onOpenRoom={setOpenRoom} onOpenChat={setOpenChat} />}
+          {active === 'profile' && <ProfileSection />}
+          {active === 'settings' && <SettingsSection />}
+
+          {/* Home section */}
+          {active === 'home' && <>
 
           {/* Hero */}
           <section className="animate-fade-in">
@@ -639,6 +937,7 @@ export default function Index() {
           <footer className="mt-16 border-t border-border pt-6 text-center text-sm text-muted-foreground">
             MrZen — пространство для осознанного общения
           </footer>
+          </>}
         </main>
       </div>
 
