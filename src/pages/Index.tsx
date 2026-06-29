@@ -59,6 +59,8 @@ export default function Index() {
   const [rooms, setRooms] = useState<Room[]>(INITIAL_ROOMS);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: '', topic: '', palette: 0 });
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const openCreate = () => {
     setForm({ name: '', topic: '', palette: 0 });
@@ -133,7 +135,7 @@ export default function Index() {
               <button onClick={openCreate} className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02]">
                 Создать комнату
               </button>
-              <button className="rounded-xl border border-border bg-card px-5 py-3 text-sm font-semibold transition-colors hover:bg-secondary">
+              <button onClick={() => setShowSearch(true)} className="rounded-xl border border-border bg-card px-5 py-3 text-sm font-semibold transition-colors hover:bg-secondary">
                 Найти обсуждение
               </button>
             </div>
@@ -293,6 +295,78 @@ export default function Index() {
           </footer>
         </main>
       </div>
+
+      {/* Search modal */}
+      {showSearch && (
+        <div
+          className="fixed inset-0 z-[60] flex items-start justify-center bg-foreground/30 p-4 pt-16 backdrop-blur-sm"
+          onClick={() => { setShowSearch(false); setSearchQuery(''); }}
+        >
+          <div
+            className="animate-scale-in w-full max-w-lg rounded-2xl border border-border bg-card shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+              <Icon name="Search" size={18} className="shrink-0 text-muted-foreground" />
+              <input
+                autoFocus
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Escape' && (setShowSearch(false), setSearchQuery(''))}
+                placeholder="Поиск комнат и обсуждений…"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="text-muted-foreground transition-colors hover:text-foreground">
+                  <Icon name="X" size={16} />
+                </button>
+              )}
+            </div>
+            <div className="max-h-80 overflow-y-auto py-2">
+              {(() => {
+                const q = searchQuery.toLowerCase();
+                const filtered = rooms.filter(
+                  (r) => r.name.toLowerCase().includes(q) || r.topic.toLowerCase().includes(q)
+                );
+                if (!searchQuery) return (
+                  <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                    Начните вводить название или тему комнаты
+                  </div>
+                );
+                if (!filtered.length) return (
+                  <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                    Ничего не найдено по запросу «{searchQuery}»
+                  </div>
+                );
+                return filtered.map((room) => (
+                  <button
+                    key={room.name}
+                    onClick={() => { setShowSearch(false); setSearchQuery(''); }}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary"
+                  >
+                    <div
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                      style={{ backgroundColor: `hsl(${room.color})` }}
+                    >
+                      <Icon name="Hash" size={18} style={{ color: `hsl(${room.accent})` }} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold">{room.name}</div>
+                      <div className="truncate text-xs text-muted-foreground">{room.topic}</div>
+                    </div>
+                    <div className="ml-auto shrink-0 text-right">
+                      <div className="text-xs font-medium">{room.members.toLocaleString('ru')}</div>
+                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <span className="h-1.5 w-1.5 rounded-full bg-green-500" />{room.online}
+                      </div>
+                    </div>
+                  </button>
+                ));
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create room modal */}
       {showCreate && (
