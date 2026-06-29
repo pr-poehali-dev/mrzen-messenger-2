@@ -61,6 +61,7 @@ export default function Index() {
   const [form, setForm] = useState({ name: '', topic: '', palette: 0 });
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showMobileNav, setShowMobileNav] = useState(false);
 
   const openCreate = () => {
     setForm({ name: '', topic: '', palette: 0 });
@@ -114,7 +115,7 @@ export default function Index() {
           {/* Mobile header */}
           <div className="mb-8 flex items-center justify-between md:hidden">
             <Logo />
-            <button className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary">
+            <button onClick={() => setShowMobileNav(true)} className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary">
               <Icon name="Menu" size={20} />
             </button>
           </div>
@@ -295,6 +296,54 @@ export default function Index() {
           </footer>
         </main>
       </div>
+
+      {/* Mobile nav drawer */}
+      {showMobileNav && (
+        <div
+          className="fixed inset-0 z-[60] flex md:hidden"
+          onClick={() => setShowMobileNav(false)}
+        >
+          <div className="absolute inset-0 bg-foreground/30 backdrop-blur-sm" />
+          <div
+            className="animate-slide-in-right relative ml-auto flex h-full w-72 flex-col bg-card px-4 py-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            style={{ animation: 'slideInRight 0.25s ease-out' }}
+          >
+            <div className="flex items-center justify-between px-2">
+              <Logo />
+              <button
+                onClick={() => setShowMobileNav(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary"
+              >
+                <Icon name="X" size={20} />
+              </button>
+            </div>
+            <nav className="mt-8 flex flex-col gap-1">
+              {NAV.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => { setActive(item.id); setShowMobileNav(false); }}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors ${
+                    active === item.id
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  }`}
+                >
+                  <Icon name={item.icon} size={20} />
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+            <div className="mt-auto flex items-center gap-3 rounded-xl bg-secondary px-3 py-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">Я</div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">Ваш профиль</div>
+                <div className="truncate text-xs text-muted-foreground">@you</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search modal */}
       {showSearch && (

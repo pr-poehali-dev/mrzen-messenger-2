@@ -109,3 +109,14 @@
     @apply transition-transform duration-200 hover:scale-[1.02];
   }
 }
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
