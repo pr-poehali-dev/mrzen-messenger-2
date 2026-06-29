@@ -103,9 +103,18 @@ function RoomScreen({ room, onBack }: { room: Room; onBack: () => void }) {
   );
   const [input, setInput] = useState('');
   const [showMod, setShowMod] = useState(false);
+  const [modTab, setModTab] = useState<'messages' | 'members' | 'settings'>('messages');
   const [pinnedMsg, setPinnedMsg] = useState<Message | null>(
     (ROOM_MESSAGES[room.name] || []).find((m) => m.pinned) || null
   );
+  const [members, setMembers] = useState([
+    { name: 'Мария', role: '', muted: false, online: true },
+    { name: 'Олег', role: 'Модератор', muted: false, online: true },
+    { name: 'Света', role: '', muted: false, online: false },
+    { name: 'Артём', role: '', muted: true, online: false },
+  ]);
+  const [slowMode, setSlowMode] = useState(false);
+  const [closeRoom, setCloseRoom] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -119,8 +128,11 @@ function RoomScreen({ room, onBack }: { room: Room; onBack: () => void }) {
     setInput('');
   };
 
-  const pinMessage = (msg: Message) => { setPinnedMsg(msg); setShowMod(false); };
+  const pinMessage = (msg: Message) => setPinnedMsg(msg);
   const deleteMessage = (idx: number) => setMessages((prev) => prev.filter((_, i) => i !== idx));
+  const toggleMute = (i: number) => setMembers((prev) => prev.map((m, idx) => idx === i ? { ...m, muted: !m.muted } : m));
+  const promoteToMod = (i: number) => setMembers((prev) => prev.map((m, idx) => idx === i ? { ...m, role: m.role ? '' : 'Модератор' } : m));
+  const kickMember = (i: number) => setMembers((prev) => prev.filter((_, idx) => idx !== i));
 
   return (
     <div className="flex h-screen flex-col bg-background animate-fade-in">
@@ -137,28 +149,138 @@ function RoomScreen({ room, onBack }: { room: Room; onBack: () => void }) {
           <div className="text-xs text-muted-foreground">{room.topic} · {room.online} онлайн</div>
         </div>
         <button
-          onClick={() => setShowMod(!showMod)}
-          className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${showMod ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-accent'}`}
+          onClick={() => setShowMod(true)}
+          className="flex items-center gap-1.5 rounded-xl bg-secondary px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-accent"
         >
           <Icon name="Shield" size={14} /> Модерация
         </button>
       </div>
 
-      {/* Moderation panel */}
+      {/* Moderation modal */}
       {showMod && (
-        <div className="border-b border-border bg-secondary/60 px-4 py-3 flex flex-wrap gap-2 animate-fade-in">
-          <span className="text-xs font-semibold text-muted-foreground self-center mr-2">Инструменты:</span>
-          {messages.length > 0 && (
-            <button onClick={() => pinMessage(messages[messages.length - 1])} className="flex items-center gap-1.5 rounded-lg bg-card border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent transition-colors">
-              <Icon name="Pin" size={13} /> Закрепить последнее
-            </button>
-          )}
-          <button onClick={() => setPinnedMsg(null)} className="flex items-center gap-1.5 rounded-lg bg-card border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent transition-colors">
-            <Icon name="PinOff" size={13} /> Снять закрепление
-          </button>
-          <button onClick={() => setMessages([])} className="flex items-center gap-1.5 rounded-lg bg-card border border-border px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors">
-            <Icon name="Trash2" size={13} /> Очистить чат
-          </button>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/30 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setShowMod(false)}>
+          <div className="animate-scale-in w-full max-w-lg rounded-t-3xl border border-border bg-card sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+            {/* Modal header */}
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div className="flex items-center gap-2">
+                <Icon name="Shield" size={18} />
+                <span className="font-bold">Модерация — {room.name}</span>
+              </div>
+              <button onClick={() => setShowMod(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary">
+                <Icon name="X" size={18} />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-border px-5">
+              {([['messages', 'Сообщения', 'MessageSquare'], ['members', 'Участники', 'Users'], ['settings', 'Настройки', 'Settings2']] as const).map(([id, label, icon]) => (
+                <button
+                  key={id}
+                  onClick={() => setModTab(id)}
+                  className={`flex items-center gap-1.5 border-b-2 px-3 py-3 text-xs font-semibold transition-colors ${modTab === id ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                >
+                  <Icon name={icon} size={13} /> {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto">
+              {/* Tab: Messages */}
+              {modTab === 'messages' && (
+                <div className="p-4 flex flex-col gap-2">
+                  <p className="text-xs text-muted-foreground mb-1">Наведите на действие или выберите сообщение</p>
+                  {messages.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Сообщений нет</p>}
+                  {messages.map((m, i) => (
+                    <div key={i} className="group flex items-start gap-3 rounded-xl border border-border p-3 hover:bg-secondary transition-colors">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">{m.author[0]}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-xs font-semibold">{m.author}</span>
+                          <span className="text-[10px] text-muted-foreground">{m.time}</span>
+                          {m.role && <span className="rounded bg-accent px-1.5 py-0.5 text-[9px] font-bold text-accent-foreground">{m.role}</span>}
+                        </div>
+                        <p className="text-sm text-muted-foreground truncate">{m.text}</p>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <button onClick={() => pinMessage(m)} title="Закрепить" className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                          <Icon name="Pin" size={13} />
+                        </button>
+                        <button onClick={() => deleteMessage(i)} title="Удалить" className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
+                          <Icon name="Trash2" size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {messages.length > 0 && (
+                    <button onClick={() => setMessages([])} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-destructive/30 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/5 transition-colors">
+                      <Icon name="Trash2" size={15} /> Очистить все сообщения
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Tab: Members */}
+              {modTab === 'members' && (
+                <div className="p-4 flex flex-col gap-2">
+                  <p className="text-xs text-muted-foreground mb-1">{members.length} участников</p>
+                  {members.map((m, i) => (
+                    <div key={i} className="flex items-center gap-3 rounded-xl border border-border p-3">
+                      <div className="relative shrink-0">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-sm font-semibold">{m.name[0]}</div>
+                        {m.online && <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-card bg-green-500" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-semibold truncate">{m.name}</span>
+                          {m.role && <span className="rounded bg-accent px-1.5 py-0.5 text-[9px] font-bold text-accent-foreground">{m.role}</span>}
+                          {m.muted && <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground">Заглушен</span>}
+                        </div>
+                        <div className="text-xs text-muted-foreground">{m.online ? 'онлайн' : 'не в сети'}</div>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <button onClick={() => promoteToMod(i)} title={m.role ? 'Снять модератора' : 'Назначить модератором'} className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                          <Icon name="ShieldCheck" size={13} />
+                        </button>
+                        <button onClick={() => toggleMute(i)} title={m.muted ? 'Включить звук' : 'Заглушить'} className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                          <Icon name={m.muted ? 'MicOff' : 'Mic'} size={13} />
+                        </button>
+                        <button onClick={() => kickMember(i)} title="Исключить" className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
+                          <Icon name="UserX" size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Tab: Settings */}
+              {modTab === 'settings' && (
+                <div className="p-4 flex flex-col gap-3">
+                  <div className="flex items-center justify-between rounded-xl border border-border p-4">
+                    <div>
+                      <div className="text-sm font-semibold">Медленный режим</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">Сообщение раз в 30 секунд</div>
+                    </div>
+                    <button onClick={() => setSlowMode(!slowMode)} className={`relative h-6 w-11 rounded-full transition-colors ${slowMode ? 'bg-primary' : 'bg-muted'}`}>
+                      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${slowMode ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-border p-4">
+                    <div>
+                      <div className="text-sm font-semibold">Закрыть комнату</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">Только участники смогут читать</div>
+                    </div>
+                    <button onClick={() => setCloseRoom(!closeRoom)} className={`relative h-6 w-11 rounded-full transition-colors ${closeRoom ? 'bg-primary' : 'bg-muted'}`}>
+                      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${closeRoom ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+                  <button className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-destructive/30 py-3 text-sm font-medium text-destructive hover:bg-destructive/5 transition-colors">
+                    <Icon name="Trash2" size={15} /> Удалить комнату
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
