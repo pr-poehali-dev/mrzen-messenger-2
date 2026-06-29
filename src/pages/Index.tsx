@@ -12,11 +12,22 @@ const NAV: { id: NavId; label: string; icon: string }[] = [
   { id: 'settings', label: 'Настройки', icon: 'Settings' },
 ];
 
-const ROOMS = [
+type Room = { name: string; topic: string; members: number; online: number; color: string; accent: string };
+
+const INITIAL_ROOMS: Room[] = [
   { name: 'Дизайн и эстетика', topic: 'Минимализм, типографика, UI', members: 1240, online: 87, color: '150 30% 90%', accent: '158 40% 30%' },
   { name: 'Технологии', topic: 'Код, AI, продукты', members: 3180, online: 214, color: '210 35% 90%', accent: '215 45% 32%' },
   { name: 'Философия', topic: 'Мысли, дзен, осознанность', members: 642, online: 41, color: '40 45% 90%', accent: '36 55% 32%' },
   { name: 'Музыка', topic: 'Альбомы, плейлисты, концерты', members: 1890, online: 132, color: '280 30% 91%', accent: '280 35% 36%' },
+];
+
+const PALETTES = [
+  { color: '150 30% 90%', accent: '158 40% 30%' },
+  { color: '210 35% 90%', accent: '215 45% 32%' },
+  { color: '40 45% 90%', accent: '36 55% 32%' },
+  { color: '280 30% 91%', accent: '280 35% 36%' },
+  { color: '0 50% 92%', accent: '0 55% 38%' },
+  { color: '190 40% 90%', accent: '190 50% 30%' },
 ];
 
 const CHATS = [
@@ -45,6 +56,25 @@ function Logo() {
 
 export default function Index() {
   const [active, setActive] = useState<NavId>('home');
+  const [rooms, setRooms] = useState<Room[]>(INITIAL_ROOMS);
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ name: '', topic: '', palette: 0 });
+
+  const openCreate = () => {
+    setForm({ name: '', topic: '', palette: 0 });
+    setShowCreate(true);
+  };
+
+  const createRoom = () => {
+    const name = form.name.trim();
+    if (!name) return;
+    const p = PALETTES[form.palette];
+    setRooms((prev) => [
+      { name, topic: form.topic.trim() || 'Новая тема для обсуждения', members: 1, online: 1, color: p.color, accent: p.accent },
+      ...prev,
+    ]);
+    setShowCreate(false);
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground antialiased">
@@ -100,7 +130,7 @@ export default function Index() {
               MrZen — пространство, где темы важнее шума. Заходите в комнату, делитесь мыслями, модерируйте обсуждения.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <button className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02]">
+              <button onClick={openCreate} className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02]">
                 Создать комнату
               </button>
               <button className="rounded-xl border border-border bg-card px-5 py-3 text-sm font-semibold transition-colors hover:bg-secondary">
@@ -116,10 +146,10 @@ export default function Index() {
                 <h2 className="text-2xl font-bold tracking-tight">Популярные комнаты</h2>
                 <p className="mt-1 text-sm text-muted-foreground">Тематические пространства для общения</p>
               </div>
-              <button className="hidden text-sm font-semibold text-muted-foreground hover:text-foreground sm:block">Все комнаты →</button>
+              <button onClick={openCreate} className="hidden text-sm font-semibold text-muted-foreground hover:text-foreground sm:block">Создать комнату →</button>
             </div>
             <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {ROOMS.map((room, i) => (
+              {rooms.map((room, i) => (
                 <article
                   key={room.name}
                   className="group animate-scale-in rounded-2xl border border-border bg-card p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/5"
@@ -263,6 +293,80 @@ export default function Index() {
           </footer>
         </main>
       </div>
+
+      {/* Create room modal */}
+      {showCreate && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-foreground/30 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          onClick={() => setShowCreate(false)}
+        >
+          <div
+            className="animate-scale-in w-full max-w-md rounded-t-3xl border border-border bg-card p-6 sm:rounded-3xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold tracking-tight">Новая комната</h3>
+              <button
+                onClick={() => setShowCreate(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary"
+              >
+                <Icon name="X" size={20} />
+              </button>
+            </div>
+
+            <label className="mt-5 block text-sm font-semibold">Название</label>
+            <input
+              autoFocus
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onKeyDown={(e) => e.key === 'Enter' && createRoom()}
+              placeholder="Например, Путешествия"
+              className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-foreground/40 placeholder:text-muted-foreground"
+            />
+
+            <label className="mt-4 block text-sm font-semibold">Тема обсуждения</label>
+            <input
+              value={form.topic}
+              onChange={(e) => setForm({ ...form, topic: e.target.value })}
+              onKeyDown={(e) => e.key === 'Enter' && createRoom()}
+              placeholder="О чём комната?"
+              className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-foreground/40 placeholder:text-muted-foreground"
+            />
+
+            <label className="mt-4 block text-sm font-semibold">Цвет</label>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {PALETTES.map((p, i) => (
+                <button
+                  key={i}
+                  onClick={() => setForm({ ...form, palette: i })}
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${
+                    form.palette === i ? 'ring-2 ring-foreground ring-offset-2 ring-offset-card' : ''
+                  }`}
+                  style={{ backgroundColor: `hsl(${p.color})` }}
+                >
+                  <Icon name="Hash" size={16} style={{ color: `hsl(${p.accent})` }} />
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-7 flex gap-3">
+              <button
+                onClick={() => setShowCreate(false)}
+                className="flex-1 rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold transition-colors hover:bg-secondary"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={createRoom}
+                disabled={!form.name.trim()}
+                className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-all hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+              >
+                Создать
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile bottom nav */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-border bg-card/95 backdrop-blur md:hidden">
